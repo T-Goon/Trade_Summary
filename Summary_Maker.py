@@ -11,10 +11,10 @@ from sys import argv
 # pathS = "Sprot\\"
 # pathA = "Ameritrade\\"
 
-pathF = argv[0]
-pathE = argv[1]
-pathS = argv[2]
-pathA = argv[3]
+pathF = argv[1]
+pathE = argv[2]
+pathS = argv[3]
+pathA = argv[4]
 
 def main():
 
@@ -38,13 +38,13 @@ def main():
     master = parse_sprot(master)
     master = parse_ameritrade(master)
 
-    # Add names of banks at the end
-    banks = pd.DataFrame(data = {master.columns[0]: ["QCU", "Etrade", "VioBank"]})
-    master = master.append(banks, ignore_index=True)
-
     # Get rid of rows with no quantity
     master[master.columns[3]].replace('', np.nan, inplace=True)
     master.dropna(subset=[master.columns[3]], inplace=True)
+
+    # Add names of banks at the end
+    banks = pd.DataFrame(data = {master.columns[0]: ["QCU", "Etrade", "VioBank"]})
+    master = master.append(banks, ignore_index=True)
 
     # Export file as csv
     today = date.today()
@@ -64,7 +64,7 @@ def parse_fidelity(master):
         file = file.drop(columns=["Last Price Change", "Today's Gain/Loss Dollar", "Today's Gain/Loss Percent", "Type"])
 
         # Get rid of special characters
-        file.Symbol.replace('[-]', '', regex=True, inplace = True)
+        file.Symbol.replace('[ -]', '', regex=True, inplace = True)
         file[file.columns[4]].replace('[$]', '', regex=True, inplace = True)
         file[file.columns[5]].replace('[$]', '', regex=True, inplace = True)
         file[file.columns[6]].replace('[$\\+]', '', regex=True, inplace = True)
@@ -150,8 +150,9 @@ def parse_ameritrade(master):
 
         # Get the data into master format
         temp = pd.DataFrame(data = {
-        master.columns[0] : [f[11:len(f)-5] for i in range(file.shape[0])], # name
-        master.columns[1] : file[file.columns[0]], # Symbol
+        master.columns[0] : [f[len(f)-29:len(f)-5] for i in range(file.shape[0])], # name
+        master.columns[1] : file[file.columns[0]].str.findall("\\(([^\)]+)\\)").str[0], # Symbol
+        master.columns[2] : file[file.columns[0]], # Description
         master.columns[3] : file[file.columns[1]], # Quantity
         master.columns[4] : file[file.columns[6]], # Last Price
         master.columns[5] : file[file.columns[7]], # Current Value
