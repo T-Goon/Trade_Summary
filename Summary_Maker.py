@@ -6,15 +6,15 @@ from datetime import date
 import re
 from sys import argv
 
-# pathF = "Fidelity\\"
-# pathE = "Etrade\\"
-# pathS = "Sprot\\"
-# pathA = "Ameritrade\\"
+pathF = "Fidelity\\"
+pathE = "Etrade\\"
+pathS = "Sprot\\"
+pathA = "Ameritrade\\"
 
-pathF = argv[1]
-pathE = argv[2]
-pathS = argv[3]
-pathA = argv[4]
+# pathF = argv[1]
+# pathE = argv[2]
+# pathS = argv[3]
+# pathA = argv[4]
 
 def main():
 
@@ -49,6 +49,53 @@ def main():
     # Export file as csv
     today = date.today()
     master.to_csv("Summary_" + today.strftime("%b-%d-%Y") + ".csv")
+
+    # create concise summary file
+    concise = pd.DataFrame(columns = [
+    master.columns[1], # Symbol
+    master.columns[3], # Quantity
+    master.columns[4], # Last Price
+    master.columns[5], # Current Value
+    master.columns[6], # Total Gain/Loss Dollar
+    master.columns[7], # Total Gain/Loss Percent
+    "Cost Basis Average",
+    master.columns[9] # Cost Basis Total
+    ])
+
+    concise = create_concise(concise, master)
+
+    concise.to_csv("Concise_" + today.strftime("%b-%d-%Y") + ".csv")
+
+# creates the concise DataFrame from the master DateFrame
+def create_concise(concise, master):
+    # Get unique stock symbols
+    symbols = master.Symbol.unique()
+
+    for i in range(len(symbols)):
+        # Calculate values for each stock
+        quan = master.loc[master[master.columns[1]] == symbols[i]][master.columns[3]].sum()
+        lp = master.at[master.Symbol.eq(symbols[i]).idxmax(), master.columns[4]]
+        val = float(quan) * float(lp)
+        cbt = pd.to_numeric(master.loc[master[master.columns[1]] == symbols[i]][master.columns[9]]).sum()
+        cba = cbt/quan
+        tgld = val - cbt
+        tglp = ((val - cbt)/((val + cbt)/2)) * 100
+
+        # add to concise
+        temp = pd.DataFrame(data = {
+        master.columns[1] : [symbols[i]], # Symbol
+        master.columns[3] : [quan], # Quantity
+        master.columns[4] : [lp], # Last Price
+        master.columns[5] : [val], # Current Value
+        master.columns[6] : [tgld], # Total Gain/Loss Dollar
+        master.columns[7] : [tglp], # Total Gain/Loss Percent
+        concise.columns[6] : [cba], # Cost Basis Average
+        master.columns[9] : [cbt] # Cost Basis Total
+        })
+
+        concise = concise.append(temp, ignore_index=True)
+
+    return concise
 
 # Parse the fidelity files and add them to the master
 def parse_fidelity(master):
@@ -150,7 +197,7 @@ def parse_ameritrade(master):
 
         # Get the data into master format
         temp = pd.DataFrame(data = {
-        master.columns[0] : [f[len(f)-29:len(f)-5] for i in range(file.shape[0])], # name
+        master.columns[0] : [f[len(f)-18:len(f)-5] for i in range(file.shape[0])], # name
         master.columns[1] : file[file.columns[0]].str.findall("\\(([^\)]+)\\)").str[0], # Symbol
         master.columns[2] : file[file.columns[0]], # Description
         master.columns[3] : file[file.columns[1]], # Quantity
