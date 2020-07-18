@@ -70,16 +70,36 @@ def main():
 def create_concise(concise, master):
     # Get unique stock symbols
     symbols = master.Symbol.unique()
+    # if there is no symbol get rid of it
+    symbols = [symbols[i] for i in range(len(symbols)) if type(symbols[i]) is str]
 
     for i in range(len(symbols)):
         # Calculate values for each stock
-        quan = master.loc[master[master.columns[1]] == symbols[i]][master.columns[3]].sum()
-        lp = master.at[master.Symbol.eq(symbols[i]).idxmax(), master.columns[4]]
-        val = float(quan) * float(lp)
-        cbt = pd.to_numeric(master.loc[master[master.columns[1]] == symbols[i]][master.columns[9]]).sum()
+        quan = float(master.loc[master[master.columns[1]] == symbols[i]][master.columns[3]].sum())
+
+        lpIndex = pd.to_numeric(master.loc[master[master.columns[1]] == symbols[i]][master.columns[4]]).idxmin()
+        if type(lpIndex) is float:
+            lp = "n/a"
+        else:
+            lp = master.at[int(lpIndex), master.columns[4]]
+
+        if lp == "n/a":
+            val = "n/a"
+        else:
+            val = float(pd.to_numeric(master.loc[master[master.columns[1]] == symbols[i]][master.columns[5]]).sum())
+
+        cbt = float(pd.to_numeric(master.loc[master[master.columns[1]] == symbols[i]][master.columns[9]]).sum())
         cba = cbt/quan
-        tgld = val - cbt
-        tglp = ((val - cbt)/((val + cbt)/2)) * 100
+
+        if val == "n/a":
+            tgld = "n/a"
+            tglp = "n/a"
+        else:
+            tgld = val - cbt
+            if(val + cbt == 0):
+                tglp = "n/a"
+            else:
+                tglp = ((val - cbt)/((val + cbt)/2)) * 100
 
         # add to concise
         temp = pd.DataFrame(data = {
