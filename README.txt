@@ -1,8 +1,7 @@
 Creates a summary using the files from different financial institutions.
 
 In the same directory put:
-Summary_Maker.bat
-Summary_Maker (folder)
+Summary_Maker.py
 
 and 3 folders named:
 
