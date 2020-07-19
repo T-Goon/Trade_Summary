@@ -16,3 +16,9 @@ NOTE:
 -All rows in the in input files that have an empty quantity value are removed.
 -Make sure that none of the input or output files are open in an editor when the
   program is run.
+
+Also makes a concise summary file that groups the data by symbol.
+
+NOTE:
+- All assests without a symbol are not included in the file.
+- All assests that contain numbers in the symbol are also excluded.
