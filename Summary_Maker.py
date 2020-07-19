@@ -59,7 +59,8 @@ def main():
     master.columns[6], # Total Gain/Loss Dollar
     master.columns[7], # Total Gain/Loss Percent
     "Cost Basis Average",
-    master.columns[9] # Cost Basis Total
+    master.columns[9], # Cost Basis Total
+    "Position Size(%)"
     ])
 
     concise = create_concise(concise, master)
@@ -72,34 +73,39 @@ def create_concise(concise, master):
     symbols = master.Symbol.unique()
     # if there is no symbol get rid of it
     symbols = [symbols[i] for i in range(len(symbols)) if type(symbols[i]) is str]
+    # get rid of all symbols that contain numbers
+    symbols = [symbols[i] for i in range(len(symbols)) if not any(char.isdigit() for char in symbols[i])]
+
+    # total value of all positions
+    totalValue = pd.to_numeric(master[master.columns[5]]).sum()
 
     for i in range(len(symbols)):
         # Calculate values for each stock
+        # sum the quantity
         quan = float(master.loc[master[master.columns[1]] == symbols[i]][master.columns[3]].sum())
 
+        # find the min last price if there is more than one
         lpIndex = pd.to_numeric(master.loc[master[master.columns[1]] == symbols[i]][master.columns[4]]).idxmin()
         if type(lpIndex) is float:
             lp = "n/a"
         else:
             lp = master.at[int(lpIndex), master.columns[4]]
 
-        if lp == "n/a":
-            val = "n/a"
-        else:
-            val = float(pd.to_numeric(master.loc[master[master.columns[1]] == symbols[i]][master.columns[5]]).sum())
+        # sum the value of each position
+        val = float(pd.to_numeric(master.loc[master[master.columns[1]] == symbols[i]][master.columns[5]]).sum())
 
+        # sum total cost basis
         cbt = float(pd.to_numeric(master.loc[master[master.columns[1]] == symbols[i]][master.columns[9]]).sum())
+        # cost basis average
         cba = cbt/quan
 
-        if val == "n/a":
-            tgld = "n/a"
+        tgld = val - cbt
+        if(cbt == 0):
             tglp = "n/a"
         else:
-            tgld = val - cbt
-            if(val + cbt == 0):
-                tglp = "n/a"
-            else:
-                tglp = ((val - cbt)/((val + cbt)/2)) * 100
+            tglp = ((val - cbt)/cbt) * 100
+
+        ps = (val/totalValue) * 100
 
         # add to concise
         temp = pd.DataFrame(data = {
@@ -110,7 +116,8 @@ def create_concise(concise, master):
         master.columns[6] : [tgld], # Total Gain/Loss Dollar
         master.columns[7] : [tglp], # Total Gain/Loss Percent
         concise.columns[6] : [cba], # Cost Basis Average
-        master.columns[9] : [cbt] # Cost Basis Total
+        master.columns[9] : [cbt], # Cost Basis Total
+        concise.columns[8] : [ps]
         })
 
         concise = concise.append(temp, ignore_index=True)
@@ -183,23 +190,23 @@ def parse_sprot(master):
 
     # append all of the files to masters
     for f in files:
-        fileTOP = pd.read_excel(f, skiprows=1, nrows = 1, usecols=np.arange(0,1))
-        fileBOT = pd.read_excel(f, skiprows=3, usecols=np.arange(1, 10))
+        fileTOP = pd.read_excel(f, nrows = 1, usecols=np.arange(0,1))
+        fileBOT = pd.read_excel(f, skiprows=2, usecols=np.arange(1, 10))
 
         # Get the name of the account
-        name = fileTOP.at[0, fileTOP.columns[0]][9:18]
+        name = fileTOP.at[0, fileTOP.columns[0]][9:26]
         del fileTOP
 
         # Change the format to be the same as the master
         temp = pd.DataFrame(data={
         master.columns[0] : [name for i in range(fileBOT.shape[0])], # Name
-        master.columns[1] : fileBOT[fileBOT.columns[2]], # Symbol
-        master.columns[2] : fileBOT[fileBOT.columns[1]], # Description
-        master.columns[3] : fileBOT[fileBOT.columns[3]], # Quantity
-        master.columns[4] : fileBOT[fileBOT.columns[4]], # Last Price
-        master.columns[5] : fileBOT[fileBOT.columns[5]], # Current Value
-        master.columns[8] : fileBOT[fileBOT.columns[7]], # Cost Basis Per Share
-        master.columns[9] : fileBOT[fileBOT.columns[8]] # Cost Basis Total
+        master.columns[1] : fileBOT[fileBOT.columns[1]], # Symbol
+        master.columns[2] : fileBOT[fileBOT.columns[0]], # Description
+        master.columns[3] : fileBOT[fileBOT.columns[2]], # Quantity
+        master.columns[4] : fileBOT[fileBOT.columns[3]], # Last Price
+        master.columns[5] : fileBOT[fileBOT.columns[4]], # Current Value
+        master.columns[8] : fileBOT[fileBOT.columns[6]], # Cost Basis Per Share
+        master.columns[9] : fileBOT[fileBOT.columns[7]] # Cost Basis Total
         })
 
         # append to master
