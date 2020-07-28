@@ -7,25 +7,26 @@ import re
 from sys import argv
 
 def main():
-    # create concise summary file
-    concise = pd.DataFrame(columns = [
-    "Symbol", # Symbol
-    "Quantity", # Quantity
-    "Last Price", # Last Price
-    "Current Value", # Current Value
-    "Total Gain/Loss Dollar", # Total Gain/Loss Dollar
-    "Total Gain/Loss Percent", # Total Gain/Loss Percent
-    "Cost Basis Average",
-    "Cost Basis Total", # Cost Basis Total
-    "Position Size(%)"
-    ])
-
     # Find all of the files in current dir
     files = [f for f in listdir(".") if isfile(f)]
     # Filter out all files in current dir so there is only the summary master left
     files = [f for f in files if "Summary_Master_" in f]
 
     master = pd.read_csv(files[0], usecols=np.arange(1, 11))
+
+    # create concise summary file
+    concise = pd.DataFrame(columns = [
+    master.columns[1], # Symbol
+    master.columns[2], # Description
+    master.columns[3], # Quantity
+    master.columns[4], # Last Price
+    master.columns[5], # Current Value
+    master.columns[6], # Total Gain/Loss Dollar
+    master.columns[7], # Total Gain/Loss Percent
+    "Cost Basis Average",
+    master.columns[9], # Cost Basis Total
+    "Position Size(%)"
+    ])
 
     concise = create_concise(concise, master)
 
@@ -46,6 +47,11 @@ def create_concise(concise, master):
     totalValue = pd.to_numeric(master[master.columns[5]]).sum()
 
     for i in range(len(symbols)):
+        des = master.loc[master[master.columns[1]] == symbols[i]][master.columns[2]]
+        print(des)
+        des = [d for d in des if d != ""]
+        print(des)
+
         # Calculate values for each stock
         # sum the quantity
         quan = float(master.loc[master[master.columns[1]] == symbols[i]][master.columns[3]].sum())
@@ -79,6 +85,7 @@ def create_concise(concise, master):
         # add to concise
         temp = pd.DataFrame(data = {
         master.columns[1] : [symbols[i]], # Symbol
+        master.columns[2] : [des[0]],
         master.columns[3] : [quan], # Quantity
         master.columns[4] : [lp], # Last Price
         master.columns[5] : [val], # Current Value
