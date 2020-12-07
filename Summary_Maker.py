@@ -29,7 +29,7 @@ def main():
     "Total Gain/Loss Dollar",
     "Total Gain/Loss Percent",
     "Cost Basis Per Share",
-    "Cost Basis Total"
+    "Total Cost Basis"
     ])
 
     # Parse the files and add to master
@@ -43,7 +43,8 @@ def main():
     master.dropna(subset=[master.columns[3]], inplace=True)
 
     # Add names of banks at the end
-    banks = pd.DataFrame(data = {master.columns[1]: ["QCU", "Etrade", "VioBank"]})
+    banks = pd.DataFrame(data = {master.columns[0]: ["QCU", "Etrade", "VioBank"],
+                                master.columns[1]: ["Cash", "Cash", "Cash"]})
     master = master.append(banks, ignore_index=True)
 
     # Export file as csv
@@ -71,6 +72,10 @@ def parse_fidelity(master):
         file[file.columns[7]].replace('[%\\+]', '', regex=True, inplace = True)
         file[file.columns[8]].replace('[$]', '', regex=True, inplace = True)
         file[file.columns[9]].replace('[$]', '', regex=True, inplace = True)
+
+        columns = file.columns.values
+        columns[9] = master.columns[9]
+        file.columns = columns
 
         master = master.append(file, ignore_index = True)
 

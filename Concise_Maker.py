@@ -23,9 +23,11 @@ def main():
     master.columns[5], # Current Value
     master.columns[6], # Total Gain/Loss Dollar
     master.columns[7], # Total Gain/Loss Percent
-    "Cost Basis Average",
+    "Average Cost Basis",
     master.columns[9], # Cost Basis Total
-    "Position Size(%)"
+    "Position Size(%)",
+    "Type",
+    "Type Total"
     ])
 
     concise = create_concise(concise, master)
@@ -41,16 +43,16 @@ def create_concise(concise, master):
     # if there is no symbol get rid of it
     symbols = [symbols[i] for i in range(len(symbols)) if type(symbols[i]) is str]
     # get rid of all symbols that contain numbers
-    symbols = [symbols[i] for i in range(len(symbols)) if not any(char.isdigit() for char in symbols[i])]
+    # symbols = [symbols[i] for i in range(len(symbols)) if not any(char.isdigit() for char in symbols[i])]
 
     # total value of all positions
     totalValue = pd.to_numeric(master[master.columns[5]]).sum()
 
     for i in range(len(symbols)):
-        des = master.loc[master[master.columns[1]] == symbols[i]][master.columns[2]]
-        print(des)
+        # Description
+        des = master.loc[master[master.columns[1]] == symbols[i]] [master.columns[2]]
+
         des = [d for d in des if d != ""]
-        print(des)
 
         # Calculate values for each stock
         # sum the quantity
@@ -68,32 +70,38 @@ def create_concise(concise, master):
 
         # sum total cost basis
         cbt = float(pd.to_numeric(master.loc[master[master.columns[1]] == symbols[i]][master.columns[9]]).sum())
+
         # cost basis average
         if(quan != 0):
             cba = cbt/quan
+
+            if (any(char.isdigit() for char in symbols[i])):
+                cba /= 100
         else:
             cba = "n/a"
 
+        # Total gain/loss dollar
         tgld = val - cbt
         if(cbt == 0):
             tglp = "n/a"
         else:
             tglp = ((val - cbt)/cbt) * 100
 
+        # Position size
         ps = (val/totalValue) * 100
 
         # add to concise
         temp = pd.DataFrame(data = {
-        master.columns[1] : [symbols[i]], # Symbol
-        master.columns[2] : [des[0]],
-        master.columns[3] : [quan], # Quantity
-        master.columns[4] : [lp], # Last Price
-        master.columns[5] : [val], # Current Value
-        master.columns[6] : [tgld], # Total Gain/Loss Dollar
-        master.columns[7] : [tglp], # Total Gain/Loss Percent
-        concise.columns[6] : [cba], # Cost Basis Average
-        master.columns[9] : [cbt], # Cost Basis Total
-        concise.columns[8] : [ps]
+        concise.columns[0] : [symbols[i]], # Symbol
+        concise.columns[1] : [des[0]], # Description
+        concise.columns[2] : [quan], # Quantity
+        concise.columns[3] : [lp], # Last Price
+        concise.columns[4] : [val], # Current Value
+        concise.columns[5] : [tgld], # Total Gain/Loss Dollar
+        concise.columns[6] : [tglp], # Total Gain/Loss Percent
+        concise.columns[7] : [cba], # Cost Basis Average
+        concise.columns[8] : [cbt], # Cost Basis Total
+        concise.columns[9] : [ps] # Position size
         })
 
         concise = concise.append(temp, ignore_index=True)
