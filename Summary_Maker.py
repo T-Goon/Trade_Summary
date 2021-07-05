@@ -7,7 +7,7 @@ from sys import argv
 
 pathF = "Fidelity/"
 pathE = "Etrade/"
-pathS = "Sprott/"
+pathS = "sprott/"
 pathA = "Ameritrade/"
 pathC = 'Canaccord/'
 
@@ -36,7 +36,7 @@ def main():
     # Parse the files and add to master
     master = parse_fidelity(master)
     master = parse_etrade(master)
-    master = parse_sprot(master)
+    master = parse_sprott(master)
     master = parse_ameritrade(master)
     master = parse_canaccord(master)
 
@@ -46,28 +46,28 @@ def main():
 
     # Add names of banks at the end
     banks = pd.DataFrame(data={
-        master.columns[0]: [ # Account Name
+        master.columns[0]: [  # Account Name
             "QCU", "Etrade", "VioBank", 'Dealmaker', 'Dealmaker', 'Dealmaker',
             'Dealmaker', 'Robin Hood', 'Robin Hood', 'Kraken'
         ],
-        master.columns[1]: [ # Symbol
+        master.columns[1]: [  # Symbol
             "Cash", "Cash", "Cash", 'DTRC', 'Carbon Streaming', 'Carbon Streaming',
             'DTRC', 'BTC', 'Cash', 'BTC'
         ],
-        master.columns[2]: [ # Description
+        master.columns[2]: [  # Description
             'Cash', 'Cash', 'Cash', 'JR Resources', 'Carbon Streaming', 'Carbon Streaming',
             'Dakota Territory Resource Corp', 'BTC', 'Cash', 'BTC'
         ],
-        master.columns[4]: # Last Price
+        master.columns[4]:  # Last Price
         [
             '1', '1', '1'
-        ]
+        ] + ([''] * (10-3))
     })
     master = master.append(banks, ignore_index=True)
 
     # Export file as csv
     today = date.today()
-    master.to_csv("Summary_Master_" + today.strftime("%b-%d-%Y") + ".csv")
+    master.to_csv("Summary_Master_" + today.strftime("%b-%d-%Y") + ".csv", index=False)
 
 # Parse the fidelity files and add them to the master
 
@@ -79,7 +79,7 @@ def parse_fidelity(master):
     # append all of the files to masters
     for f in files:
         file = pd.read_csv(f, header=0, skipfooter=6, usecols=np.arange(0, 14),
-                           na_values='--')
+                           na_values='--', engine='python')
 
         # drop useless columns
         file = file.drop(columns=[
@@ -112,7 +112,7 @@ def parse_etrade(master):
     # append all of the files to masters
     for f in files:
         fileTOP = pd.read_csv(f, nrows=1, skiprows=[0])
-        fileBOT = pd.read_csv(f, skiprows=6, skipfooter=6)
+        fileBOT = pd.read_csv(f, skiprows=10, skipfooter=4, usecols=range(10), engine='python')
 
         # Get the account name from the top part of the csv
         name = fileTOP.at[0, fileTOP.columns[0]]
@@ -141,17 +141,17 @@ def parse_etrade(master):
 
     return master
 
-# Parse the Sprot files and add them to the master
+# Parse the sprott files and add them to the master
 
 
-def parse_sprot(master):
+def parse_sprott(master):
     # Find all of the files in the 'Etrade' folder
     files = [join(pathS, f) for f in listdir(pathS) if isfile(join(pathS, f))]
 
     # append all of the files to masters
     for f in files:
-        fileTOP = pd.read_excel(f, nrows=1, usecols=np.arange(0, 1))
-        fileBOT = pd.read_excel(f, skiprows=2, usecols=np.arange(1, 10))
+        fileTOP = pd.read_csv(f, nrows=1, usecols=np.arange(0, 1))
+        fileBOT = pd.read_csv(f, skiprows=14, usecols=np.arange(1, 10))
 
         # Get the name of the account
         name = fileTOP.at[0, fileTOP.columns[0]][9:26]
@@ -208,7 +208,35 @@ def parse_ameritrade(master):
     return master
 
 
+# Parse the Canaccord files and add them to the master
 def parse_canaccord(master):
+    # Find all of the files in the 'Canaccord' folder
+    files = [join(pathC, f) for f in listdir(pathC) if isfile(join(pathC, f))]
+
+    # append all of the files to masters
+    for f in files:
+        file = pd.read_excel(f, skiprows=2)
+
+        # Get the data into master format
+        temp = pd.DataFrame(data={
+            # name
+            master.columns[0]: file[file.columns[2]],
+            # Symbol
+            master.columns[1]: file[file.columns[0]],
+            master.columns[2]: file[file.columns[4]],  # Description
+            master.columns[3]: file[file.columns[6]],  # Quantity
+            master.columns[4]: file[file.columns[7]],  # Last Price
+            master.columns[5]: file[file.columns[12]],  # Current Value
+            master.columns[6]: ['']*file.shape[0],  # Total Gain/Loss Dollar
+            # Total Gain/Loss Percent
+            master.columns[7]: ['']*file.shape[0],
+            master.columns[8]: ['']*file.shape[0],  # Cost Basis Per Share
+            master.columns[9]: ['']*file.shape[0]  # Cost Basis Total
+        })
+
+        # Add to master
+        master = master.append(temp, ignore_index=True)
+
     return master
 
 
