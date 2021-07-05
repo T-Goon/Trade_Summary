@@ -6,10 +6,11 @@ from datetime import date
 import re
 from sys import argv
 
-pathF = "Fidelity\\"
-pathE = "Etrade\\"
-pathS = "Sprot\\"
-pathA = "Ameritrade\\"
+pathF = "Fidelity/"
+pathE = "Etrade/"
+pathS = "Sprott/"
+pathA = "Ameritrade/"
+pathC = 'Canaccord/'
 
 # pathF = argv[1]
 # pathE = argv[2]
@@ -37,6 +38,7 @@ def main():
     master = parse_etrade(master)
     master = parse_sprot(master)
     master = parse_ameritrade(master)
+    master = parse_canaccord(master)
 
     # Get rid of rows with no quantity
     master[master.columns[3]].replace('', np.nan, inplace=True)
@@ -170,6 +172,9 @@ def parse_ameritrade(master):
         # Add to master
         master = master.append(temp, ignore_index=True)
 
+    return master
+
+def parse_canaccord(master):
     return master
 
 if (__name__ == "__main__"):
