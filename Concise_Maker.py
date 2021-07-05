@@ -12,7 +12,7 @@ def main():
     # Filter out all files in current dir so there is only the summary master left
     files = [f for f in files if "Summary_Master_" in f]
 
-    master = pd.read_csv(files[0], usecols=np.arange(1, 11))
+    master = pd.read_csv(files[0], usecols=np.arange(0, 10))
 
     # create concise summary file
     concise = pd.DataFrame(columns = [
@@ -32,9 +32,9 @@ def main():
 
     concise = create_concise(concise, master)
 
-    today = date.today();
+    today = date.today()
 
-    concise.to_csv("Concise_" + today.strftime("%b-%d-%Y") + ".csv")
+    concise.to_csv("Concise_" + today.strftime("%b-%d-%Y") + ".csv", index=False)
 
 # creates the concise DataFrame from the master DateFrame
 def create_concise(concise, master):
@@ -59,6 +59,7 @@ def create_concise(concise, master):
         quan = float(master.loc[master[master.columns[1]] == symbols[i]][master.columns[3]].sum())
 
         # find the min last price if there is more than one
+        # print(master.loc[master[master.columns[1]] == symbols[i]])
         lpIndex = pd.to_numeric(master.loc[master[master.columns[1]] == symbols[i]][master.columns[4]]).idxmin()
         if type(lpIndex) is float:
             lp = "n/a"
@@ -110,4 +111,4 @@ def create_concise(concise, master):
 
 
 if __name__ == "__main__":
-    main();
+    main()

@@ -122,18 +122,18 @@ def parse_etrade(master):
         temp = pd.DataFrame(data={
             master.columns[0]: [name for i in range(fileBOT.shape[0])],  # name
             master.columns[1]: fileBOT[fileBOT.columns[0]],  # Symbol
-            master.columns[3]: fileBOT[fileBOT.columns[6]],  # Quantity
-            master.columns[4]: fileBOT[fileBOT.columns[1]],  # Last Price
-            master.columns[5]: fileBOT[fileBOT.columns[7]],  # Current Value
+            master.columns[3]: fileBOT[fileBOT.columns[1]],  # Quantity
+            master.columns[4]: fileBOT[fileBOT.columns[2]],  # Last Price
+            master.columns[5]: fileBOT[fileBOT.columns[3]],  # Current Value
             # Total Gain/Loss Dollar
-            master.columns[6]: fileBOT[fileBOT.columns[4]],
+            master.columns[6]: fileBOT[fileBOT.columns[5]],
             # Total Gain/Loss Percent
-            master.columns[7]: fileBOT[fileBOT.columns[5]],
+            master.columns[7]: fileBOT[fileBOT.columns[7]],
             # Cost Basis Per Share
-            master.columns[8]: fileBOT[fileBOT.columns[8]],
+            master.columns[8]: fileBOT[fileBOT.columns[9]],
             # Calculate Cost Basis Total
             master.columns[9]: [
-                p*q for p, q in zip(fileBOT[fileBOT.columns[8]], fileBOT[fileBOT.columns[6]])]
+                p*q for p, q in zip(fileBOT[fileBOT.columns[9]], fileBOT[fileBOT.columns[1]])]
         })
 
         # append to master
@@ -151,7 +151,7 @@ def parse_sprott(master):
     # append all of the files to masters
     for f in files:
         fileTOP = pd.read_csv(f, nrows=1, usecols=np.arange(0, 1))
-        fileBOT = pd.read_csv(f, skiprows=14, usecols=np.arange(1, 10))
+        fileBOT = pd.read_csv(f, skiprows=14, usecols=np.arange(0, 10))
 
         # Get the name of the account
         name = fileTOP.at[0, fileTOP.columns[0]][9:26]
@@ -166,9 +166,11 @@ def parse_sprott(master):
             master.columns[4]: fileBOT[fileBOT.columns[3]],  # Last Price
             master.columns[5]: fileBOT[fileBOT.columns[4]],  # Current Value
             # Cost Basis Per Share
-            master.columns[8]: fileBOT[fileBOT.columns[6]],
-            master.columns[9]: fileBOT[fileBOT.columns[7]]  # Cost Basis Total
+            master.columns[8]: fileBOT[fileBOT.columns[8]],
+            master.columns[9]: fileBOT[fileBOT.columns[9]]  # Cost Basis Total
         })
+
+        temp[master.columns[5]].replace('[\\*]', '', regex=True, inplace=True)
 
         # append to master
         master = master.append(temp, ignore_index=True)
