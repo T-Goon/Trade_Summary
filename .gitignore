@@ -1,6 +1,7 @@
 /Ameritrade
 /Etrade
 /Fidelity
-/Sprot
+/Sprott
+/Canaccord
 *.csv
 *.xlsx
