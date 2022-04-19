@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import io
 from os import listdir
 from os.path import isfile, join
 from datetime import date
@@ -78,15 +79,18 @@ def parse_fidelity(master):
 
     # append all of the files to masters
     for f in files:
-        file = pd.read_csv(f, header=0, skipfooter=6, usecols=np.arange(0, 14),
-                           na_values='--', engine='python')
+        with open(f, encoding='ascii', errors='ignore') as fr:
+            data = fr.read()
+
+        file = pd.read_csv(io.StringIO(data), header=0, skipfooter=6, usecols=np.arange(0, 15),
+                           na_values='--', engine='python', error_bad_lines=False)
 
         # drop useless columns
         file = file.drop(columns=[
-                         "Last Price Change", "Today's Gain/Loss Dollar", "Today's Gain/Loss Percent", "Type"])
+                         "Last Price Change", "Today's Gain/Loss Dollar", "Today's Gain/Loss Percent", "Type", "Percent Of Account"], errors='ignore')
 
         # Get rid of special characters
-        file.Symbol.replace('[ -]', '', regex=True, inplace=True)
+        file.replace('[-%]', '', regex=True, inplace=True)
         file[file.columns[4]].replace('[$]', '', regex=True, inplace=True)
         file[file.columns[5]].replace('[$]', '', regex=True, inplace=True)
         file[file.columns[6]].replace('[$\\+]', '', regex=True, inplace=True)
@@ -94,9 +98,14 @@ def parse_fidelity(master):
         file[file.columns[8]].replace('[$]', '', regex=True, inplace=True)
         file[file.columns[9]].replace('[$]', '', regex=True, inplace=True)
 
-        columns = file.columns.values
-        columns[9] = master.columns[9]
-        file.columns = columns
+        # Condense Account name and number columns into one
+        if (master.columns[0] not in file.columns):
+            file[master.columns[0]] = file[file.columns[0]] + " " + file[file.columns[1]]
+            file = file.drop(columns=['Account Number', 'Account Name'])
+
+        # Handle renamed Total Cost Basis column
+        if (master.columns[9] not in file.columns and 'Cost Basis' in file.columns):
+            file = file.rename(columns={'Cost Basis': master.columns[9]})
 
         master = master.append(file, ignore_index=True)
 
@@ -111,8 +120,11 @@ def parse_etrade(master):
 
     # append all of the files to masters
     for f in files:
-        fileTOP = pd.read_csv(f, nrows=1, skiprows=[0])
-        fileBOT = pd.read_csv(f, skiprows=10, skipfooter=4, usecols=range(10), engine='python')
+        with open(f, encoding='ascii', errors='ignore') as fr:
+            data = fr.read()
+
+        fileTOP = pd.read_csv(io.StringIO(data), nrows=1, skiprows=[0], error_bad_lines=False)
+        fileBOT = pd.read_csv(io.StringIO(data), skiprows=10, skipfooter=4, usecols=range(10), engine='python', error_bad_lines=False)
 
         # Get the account name from the top part of the csv
         name = fileTOP.at[0, fileTOP.columns[0]]
@@ -150,8 +162,10 @@ def parse_sprott(master):
 
     # append all of the files to masters
     for f in files:
-        fileTOP = pd.read_csv(f, nrows=1, usecols=np.arange(0, 1))
-        fileBOT = pd.read_csv(f, skiprows=14, usecols=np.arange(0, 10))
+        with open(f, encoding='ascii', errors='ignore') as fr:
+            data = fr.read()
+        fileTOP = pd.read_csv(io.StringIO(data), nrows=1, usecols=np.arange(0, 1), error_bad_lines=False)
+        fileBOT = pd.read_csv(io.StringIO(data), skiprows=14, usecols=np.arange(0, 10), error_bad_lines=False)
 
         # Get the name of the account
         name = fileTOP.at[0, fileTOP.columns[0]][9:26]
