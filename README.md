@@ -7,6 +7,7 @@ Supports files from:
 - Etrade
 - Sprot
 - Ameritrade
+- Canaccord
 
 **NOTE:** The .csv file formats from the financial institutions change over time. This script may need slight editing to account for the new formats.
 
@@ -22,6 +23,7 @@ and 3 folders named:
 - 'Etrade/'
 - 'Sprot/'
 - 'Ameritrade/'
+- 'Canaccord/'
 
 Put the input files into their corresponding folders and run the program.
 
