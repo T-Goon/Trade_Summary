@@ -68,6 +68,7 @@ def main():
 
     # Export file as csv
     today = date.today()
+    master.replace('[,]', '', regex=True, inplace=True)
     master.to_csv("Summary_Master_" + today.strftime("%b-%d-%Y") + ".csv", index=False)
 
 # Parse the fidelity files and add them to the master
@@ -83,6 +84,13 @@ def parse_fidelity(master):
             data = fr.read()
 
         file = pd.read_csv(io.StringIO(data), header=0, skipfooter=6, usecols=np.arange(0, 15),
+                           na_values='--', engine='python', error_bad_lines=False)
+
+        try:
+            file = pd.read_excel(io.StringIO(data), header=0, skipfooter=6, usecols=np.arange(0, 15),
+                           na_values='--')
+        except:
+            file = pd.read_csv(io.StringIO(data), header=0, skipfooter=6, usecols=np.arange(0, 15),
                            na_values='--', engine='python', error_bad_lines=False)
 
         # drop useless columns
@@ -112,8 +120,6 @@ def parse_fidelity(master):
     return master
 
 # Parse the etrade files and add them to the master
-
-
 def parse_etrade(master):
     # Find all of the files in the 'Etrade' folder
     files = [join(pathE, f) for f in listdir(pathE) if isfile(join(pathE, f))]
@@ -123,8 +129,12 @@ def parse_etrade(master):
         with open(f, encoding='ascii', errors='ignore') as fr:
             data = fr.read()
 
-        fileTOP = pd.read_csv(io.StringIO(data), nrows=1, skiprows=[0], error_bad_lines=False)
-        fileBOT = pd.read_csv(io.StringIO(data), skiprows=10, skipfooter=4, usecols=range(10), engine='python', error_bad_lines=False)
+        try:
+            fileTOP = pd.read_excel(io.StringIO(data), nrows=1, skiprows=[0])
+            fileBOT = pd.read_excel(io.StringIO(data), skiprows=10, skipfooter=4, usecols=range(10))
+        except:
+            fileTOP = pd.read_csv(io.StringIO(data), nrows=1, skiprows=[0], engine='python', error_bad_lines=False)
+            fileBOT = pd.read_csv(io.StringIO(data), skiprows=10, skipfooter=4, usecols=range(10), engine='python', error_bad_lines=False)
 
         # Get the account name from the top part of the csv
         name = fileTOP.at[0, fileTOP.columns[0]]
@@ -154,8 +164,6 @@ def parse_etrade(master):
     return master
 
 # Parse the sprott files and add them to the master
-
-
 def parse_sprott(master):
     # Find all of the files in the 'Etrade' folder
     files = [join(pathS, f) for f in listdir(pathS) if isfile(join(pathS, f))]
@@ -164,8 +172,13 @@ def parse_sprott(master):
     for f in files:
         with open(f, encoding='ascii', errors='ignore') as fr:
             data = fr.read()
-        fileTOP = pd.read_csv(io.StringIO(data), nrows=1, usecols=np.arange(0, 1), error_bad_lines=False)
-        fileBOT = pd.read_csv(io.StringIO(data), skiprows=14, usecols=np.arange(0, 10), error_bad_lines=False)
+
+        try:
+            fileTOP = pd.read_excel(io.StringIO(data), nrows=1, usecols=np.arange(0, 1))
+            fileBOT = pd.read_excel(io.StringIO(data), skiprows=14, usecols=np.arange(0, 10))
+        except:
+            fileTOP = pd.read_csv(io.StringIO(data), nrows=1, usecols=np.arange(0, 1), engine='python', error_bad_lines=False)
+            fileBOT = pd.read_csv(io.StringIO(data), skiprows=14, usecols=np.arange(0, 10), engine='python', error_bad_lines=False)
 
         # Get the name of the account
         name = fileTOP.at[0, fileTOP.columns[0]][9:26]
@@ -199,7 +212,13 @@ def parse_ameritrade(master):
 
     # append all of the files to masters
     for f in files:
-        file = pd.read_excel(f, skipfooter=1)
+        with open(f, encoding='ascii', errors='ignore') as fr:
+            data = fr.read()
+
+        try:
+            file = pd.read_excel(io.StringIO(data), skipfooter=1)
+        except:
+            file = pd.read_csv(io.StringIO(data), skipfooter=1, engine='python', error_bad_lines=False)
 
         # Get the data into master format
         temp = pd.DataFrame(data={
@@ -231,7 +250,13 @@ def parse_canaccord(master):
 
     # append all of the files to masters
     for f in files:
-        file = pd.read_excel(f, skiprows=2)
+        with open(f, encoding='ascii', errors='ignore') as fr:
+            data = fr.read()
+
+        try:
+            file = pd.read_excel(io.StringIO(data), skiprows=2)
+        except:
+            file = pd.read_csv(io.StringIO(data), skiprows=2, engine='python', error_bad_lines=False)
 
         # Get the data into master format
         temp = pd.DataFrame(data={
