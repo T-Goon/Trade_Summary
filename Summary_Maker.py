@@ -1,3 +1,4 @@
+from typing import List
 import numpy as np
 import pandas as pd
 import io
@@ -69,7 +70,8 @@ def main():
     # Export file as csv
     today = date.today()
     master.replace('[,]', '', regex=True, inplace=True)
-    master.to_csv("Summary_Master_" + today.strftime("%b-%d-%Y") + ".csv", index=False)
+    master.to_csv("Summary_Master_" +
+                  today.strftime("%b-%d-%Y") + ".csv", index=False)
 
 # Parse the fidelity files and add them to the master
 
@@ -82,16 +84,33 @@ def parse_fidelity(master):
     for f in files:
         with open(f, encoding='ascii', errors='ignore') as fr:
             data = fr.read()
+            data_end: int = -1
 
-        file = pd.read_csv(io.StringIO(data), header=0, skipfooter=6, usecols=np.arange(0, 15),
-                           na_values='--', engine='python', error_bad_lines=False)
+            # Find the row where the header ends and the data begins
+            rows: List[str] = data.split('\n')
+            for i, row in enumerate(rows):
+                columns: List[str] = row.split(',')
+                if data_end == -1 and columns[0] == '':
+                    data_end = len(rows) - i - 1
 
         try:
-            file = pd.read_excel(io.StringIO(data), header=0, skipfooter=6, usecols=np.arange(0, 15),
-                           na_values='--')
+            file = pd.read_excel(
+                io.StringIO(data),
+                header=0,
+                skipfooter=data_end,
+                usecols=np.arange(0, 15),
+                na_values='--'
+            )
         except:
-            file = pd.read_csv(io.StringIO(data), header=0, skipfooter=6, usecols=np.arange(0, 15),
-                           na_values='--', engine='python', error_bad_lines=False)
+            file = pd.read_csv(
+                io.StringIO(data),
+                header=0,
+                skipfooter=data_end,
+                usecols=np.arange(0, 15),
+                na_values='--',
+                engine='python',
+                error_bad_lines=False
+            )
 
         # drop useless columns
         file = file.drop(columns=[
@@ -108,7 +127,8 @@ def parse_fidelity(master):
 
         # Condense Account name and number columns into one
         if (master.columns[0] not in file.columns):
-            file[master.columns[0]] = file[file.columns[0]] + " " + file[file.columns[1]]
+            file[master.columns[0]] = file[file.columns[0]] + \
+                " " + file[file.columns[1]]
             file = file.drop(columns=['Account Number', 'Account Name'])
 
         # Handle renamed Total Cost Basis column
@@ -120,6 +140,8 @@ def parse_fidelity(master):
     return master
 
 # Parse the etrade files and add them to the master
+
+
 def parse_etrade(master):
     # Find all of the files in the 'Etrade' folder
     files = [join(pathE, f) for f in listdir(pathE) if isfile(join(pathE, f))]
@@ -127,14 +149,47 @@ def parse_etrade(master):
     # append all of the files to masters
     for f in files:
         with open(f, encoding='ascii', errors='ignore') as fr:
-            data = fr.read()
+            data: str = fr.read()
+            data_start: int = -1
+            data_end: int = -1
+
+            # Find the row where the header ends and the data begins
+            rows: List[str] = data.split('\n')
+            for i, row in enumerate(rows):
+                columns: List[str] = row.split(',')
+                if data_start == -1 and columns[0] == 'Symbol' and columns[1] == 'Qty #':
+                    data_start = i
+                if data_end == -1 and columns[0] == 'TOTAL':
+                    data_end = len(rows) - i - 1
 
         try:
-            fileTOP = pd.read_excel(io.StringIO(data), nrows=1, skiprows=[0])
-            fileBOT = pd.read_excel(io.StringIO(data), skiprows=10, skipfooter=4, usecols=range(10))
+            fileTOP = pd.read_excel(
+                io.StringIO(data),
+                nrows=1,
+                skiprows=[0]
+            )
+            fileBOT = pd.read_excel(
+                io.StringIO(data),
+                skiprows=data_start,
+                skipfooter=data_end,
+                usecols=range(10)
+            )
         except:
-            fileTOP = pd.read_csv(io.StringIO(data), nrows=1, skiprows=[0], engine='python', error_bad_lines=False)
-            fileBOT = pd.read_csv(io.StringIO(data), skiprows=10, skipfooter=4, usecols=range(10), engine='python', error_bad_lines=False)
+            fileTOP = pd.read_csv(
+                io.StringIO(data),
+                nrows=1,
+                skiprows=[0],
+                engine='python',
+                error_bad_lines=False
+            )
+            fileBOT = pd.read_csv(
+                io.StringIO(data),
+                skiprows=data_start,
+                skipfooter=data_end,
+                usecols=range(10),
+                engine='python',
+                error_bad_lines=False
+            )
 
         # Get the account name from the top part of the csv
         name = fileTOP.at[0, fileTOP.columns[0]]
@@ -164,21 +219,52 @@ def parse_etrade(master):
     return master
 
 # Parse the sprott files and add them to the master
+
+
 def parse_sprott(master):
-    # Find all of the files in the 'Etrade' folder
+    # Find all of the files in the 'Sprott' folder
     files = [join(pathS, f) for f in listdir(pathS) if isfile(join(pathS, f))]
 
     # append all of the files to masters
     for f in files:
         with open(f, encoding='ascii', errors='ignore') as fr:
-            data = fr.read()
+            data: str = fr.read()
+            data_start: int = -1
+
+            # Find the row where the header ends and the data begins
+            for i, row in enumerate(data.split('\n')):
+                columns: List[str] = row.split(',')
+                if columns[0] == 'Description':
+                    data_start = i
+                    break
 
         try:
-            fileTOP = pd.read_excel(io.StringIO(data), nrows=1, usecols=np.arange(0, 1))
-            fileBOT = pd.read_excel(io.StringIO(data), skiprows=14, usecols=np.arange(0, 10))
+            fileTOP = pd.read_excel(
+                io.StringIO(data),
+                nrows=1,
+                usecols=np.arange(0, 1)
+            )
+            fileBOT = pd.read_excel(
+                io.StringIO(
+                    data),
+                skiprows=data_start,
+                usecols=np.arange(0, 10)
+            )
         except:
-            fileTOP = pd.read_csv(io.StringIO(data), nrows=1, usecols=np.arange(0, 1), engine='python', error_bad_lines=False)
-            fileBOT = pd.read_csv(io.StringIO(data), skiprows=14, usecols=np.arange(0, 10), engine='python', error_bad_lines=False)
+            fileTOP = pd.read_csv(
+                io.StringIO(data),
+                nrows=1,
+                usecols=np.arange(0, 1),
+                engine='python',
+                error_bad_lines=False
+            )
+            fileBOT = pd.read_csv(
+                io.StringIO(data),
+                skiprows=data_start,
+                usecols=np.arange(0, 10),
+                engine='python',
+                error_bad_lines=False
+            )
 
         # Get the name of the account
         name = fileTOP.at[0, fileTOP.columns[0]][9:26]
@@ -218,7 +304,8 @@ def parse_ameritrade(master):
         try:
             file = pd.read_excel(io.StringIO(data), skipfooter=1)
         except:
-            file = pd.read_csv(io.StringIO(data), skipfooter=1, engine='python', error_bad_lines=False)
+            file = pd.read_csv(io.StringIO(data), skipfooter=1,
+                               engine='python', error_bad_lines=False)
 
         # Get the data into master format
         temp = pd.DataFrame(data={
@@ -256,7 +343,8 @@ def parse_canaccord(master):
         try:
             file = pd.read_excel(io.StringIO(data), skiprows=2)
         except:
-            file = pd.read_csv(io.StringIO(data), skiprows=2, engine='python', error_bad_lines=False)
+            file = pd.read_csv(io.StringIO(data), skiprows=2,
+                               engine='python', error_bad_lines=False)
 
         # Get the data into master format
         temp = pd.DataFrame(data={
