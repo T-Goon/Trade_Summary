@@ -3,5 +3,7 @@
 /Fidelity
 /Sprott
 /Canaccord
+/Schwab
 *.csv
 *.xlsx
+error.log
