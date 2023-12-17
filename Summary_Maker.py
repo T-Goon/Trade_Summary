@@ -1,14 +1,14 @@
 from enum import Enum
 import os
 import traceback
-from typing import List, Union
+from typing import List, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
+from pandas import DataFrame
 import io
 from os import listdir
 from os.path import isfile, join
 from datetime import date
-from sys import argv
 
 pathF = "Fidelity/"
 pathE = "Etrade/"
@@ -34,7 +34,7 @@ class MasterColums(Enum):
 def main():
 
     # Create master DataFrame from columns from Fidelity files
-    master = pd.DataFrame(columns=[
+    master: DataFrame = DataFrame(columns=[
         MasterColums.ACCOUNT_NAME.value,
         MasterColums.SYMBOL.value,
         MasterColums.DESCRIPTION.value,
@@ -64,7 +64,7 @@ def main():
     master.dropna(subset=[MasterColums.QUANTITY.value], inplace=True)
 
     # Add names of banks at the end
-    banks = pd.DataFrame(data={
+    banks = DataFrame(data={
         MasterColums.ACCOUNT_NAME.value: [  # Account Name
             "QCU", "Etrade", "VioBank", 'Dealmaker', 'Dealmaker', 'Dealmaker',
             'Dealmaker', 'Robin Hood', 'Robin Hood', 'Kraken'
@@ -91,7 +91,7 @@ def main():
                   today.strftime("%b-%d-%Y") + ".csv", index=False)
 
 
-def parse_fidelity(master):
+def parse_fidelity(master: DataFrame) -> DataFrame:
     """Parse the fidelity files and add them to the master"""
     # Find all of the files in the 'Fidelity' folder
     files = [join(pathF, f) for f in listdir(pathF) if isfile(join(pathF, f))]
@@ -117,12 +117,20 @@ def parse_fidelity(master):
             data_end=data_end,
             use_cols=use_cols,
             header=0,
-            na_values='--'
+            na_values=['--', 'n/a']
         )
 
         # drop useless columns
-        file = file.drop(columns=[
-                         "Last Price Change", "Today's Gain/Loss Dollar", "Today's Gain/Loss Percent", "Type", "Percent Of Account"], errors='ignore')
+        file = file.drop(
+            columns=[
+                "Last Price Change",
+                "Today's Gain/Loss Dollar", 
+                "Today's Gain/Loss Percent", 
+                "Type",
+                "Percent Of Account"
+            ],
+            errors='ignore'
+        )
 
         # Get rid of special characters
         file.replace('[%]', '', regex=True, inplace=True)
@@ -132,6 +140,7 @@ def parse_fidelity(master):
         remove_bad_characters(file, 7)
         remove_bad_characters(file, 8)
         remove_bad_characters(file, 9)
+        remove_bad_characters(file, 10)
 
         # Condense Account name and number columns into one
         if (MasterColums.ACCOUNT_NAME.value not in file.columns):
@@ -149,19 +158,39 @@ def parse_fidelity(master):
             file = file.rename(
                 columns={'Average Cost Basis': MasterColums.COST_BASIS_PER_SHARE.value})
 
+        file[MasterColums.DESCRIPTION.value] = file[MasterColums.DESCRIPTION.value].fillna('').astype(str)
+        # Money Market and Pending Activity has no quantity, set to 1
+        cash_like_indexes: List[int] = [
+            index for index, desc, symbol in 
+            zip(
+                file[MasterColums.DESCRIPTION.value].index,
+                file[MasterColums.DESCRIPTION.value].values,
+                file[MasterColums.SYMBOL.value].values
+            )
+            if 'money market' in desc.lower() or 'pending activity' in symbol.lower()
+        ]
+        file[MasterColums.QUANTITY.value] = [
+            quantity if index not in cash_like_indexes else 1 
+            for index, quantity in
+            zip(
+                file[MasterColums.QUANTITY.value].index,
+                file[MasterColums.QUANTITY.value].values
+            )
+        ]
+
         # Total gain/loss dollar always positive, use percentage to check if it should be negative
-        file['Total Gain/Loss Percent'] = pd.to_numeric(
-            file['Total Gain/Loss Percent'])
-        file['Total Gain/Loss Dollar'] = [  
-            '-' + dollar if percent < 0 else dollar
-            for dollar, percent in zip(file['Total Gain/Loss Dollar'], file['Total Gain/Loss Percent'])]
+        # file['Total Gain/Loss Percent'] = pd.to_numeric(
+        #     file['Total Gain/Loss Percent'])
+        # file['Total Gain/Loss Dollar'] = [  
+        #     ('-' + str(dollar)) if percent < 0 else dollar
+        #     for dollar, percent in zip(file['Total Gain/Loss Dollar'], file['Total Gain/Loss Percent'])]
 
         master = master.append(file, ignore_index=True)
 
     return master
 
 
-def parse_etrade(master):
+def parse_etrade(master: DataFrame) -> DataFrame:
     """Parse the etrade files and add them to the master"""
     # Find all of the files in the 'Etrade' folder
     files = [join(pathE, f) for f in listdir(pathE) if isfile(join(pathE, f))]
@@ -197,7 +226,7 @@ def parse_etrade(master):
         del fileTOP
 
         # Change the format to be the same as the master
-        temp = pd.DataFrame(data={
+        temp = DataFrame(data={
             # name
             MasterColums.ACCOUNT_NAME.value: [name for _ in range(fileBOT.shape[0])],
             MasterColums.SYMBOL.value: fileBOT[fileBOT.columns[0]],  # Symbol
@@ -225,7 +254,7 @@ def parse_etrade(master):
 
 
 @DeprecationWarning
-def parse_sprott(master):
+def parse_sprott(master: DataFrame) -> DataFrame:
     """Parse the sprott files and add them to the master"""
     # Find all of the files in the 'Sprott' folder
     files = [join(pathS, f) for f in listdir(pathS) if isfile(join(pathS, f))]
@@ -276,7 +305,7 @@ def parse_sprott(master):
         del fileTOP
 
         # Change the format to be the same as the master
-        temp = pd.DataFrame(data={
+        temp = DataFrame(data={
             # Name
             MasterColums.ACCOUNT_NAME.value: [name for _ in range(fileBOT.shape[0])],
             MasterColums.SYMBOL.value: fileBOT[fileBOT.columns[1]],  # Symbol
@@ -303,7 +332,7 @@ def parse_sprott(master):
 
 
 @DeprecationWarning
-def parse_ameritrade(master):
+def parse_ameritrade(master: DataFrame) -> DataFrame:
     """Parse the Ameritrade files and add them to the master"""
     # Find all of the files in the 'Ameritrade' folder
     files = [join(pathA, f) for f in listdir(pathA) if isfile(join(pathA, f))]
@@ -320,7 +349,7 @@ def parse_ameritrade(master):
                                engine='python', error_bad_lines=False)
 
         # Get the data into master format
-        temp = pd.DataFrame(data={
+        temp = DataFrame(data={
             # name
             MasterColums.ACCOUNT_NAME.value: [f[len(f)-18:len(f)-5] for i in range(file.shape[0])],
             # Symbol
@@ -347,23 +376,23 @@ def parse_ameritrade(master):
     return master
 
 
-def parse_canaccord(master):
+def parse_canaccord(master: DataFrame) -> DataFrame:
     """Parse the Canaccord files and add them to the master"""
     # Find all of the files in the 'Canaccord' folder
     files = [join(pathC, f) for f in listdir(pathC) if isfile(join(pathC, f))]
 
     # append all of the files to masters
     for f in files:
-        with open(f, encoding='ascii', errors='ignore') as fr:
-            data = fr.read()
+        # with open(f, encoding='ascii', errors='ignore') as fr:
+        #     data = fr.read()
 
         _, file = read_file(
-            data,
+            f,
             data_start=2
         )
 
         # Get the data into master format
-        temp = pd.DataFrame(data={
+        temp = DataFrame(data={
             # name
             MasterColums.ACCOUNT_NAME.value: file[file.columns[2]],
             # Symbol
@@ -390,7 +419,7 @@ def parse_canaccord(master):
     return master
 
 
-def parse_schwab(master):
+def parse_schwab(master: DataFrame) -> DataFrame:
     """Parse the schwab files and add them to the master"""
     # Find all of the files in the 'Schwab' folder
     files = [join(pathSchwab, f)
@@ -445,7 +474,7 @@ def parse_schwab(master):
             fileBOT[fileBOT.columns[9]])
 
         # Change the format to be the same as the master
-        temp = pd.DataFrame(data={
+        temp = DataFrame(data={
             # name
             MasterColums.ACCOUNT_NAME.value: [name for _ in range(fileBOT.shape[0])],
             MasterColums.SYMBOL.value: fileBOT[fileBOT.columns[0]],  # Symbol
@@ -475,24 +504,48 @@ def parse_schwab(master):
     return master
 
 
-def read_file(file, data_start, use_cols=None, data_end=0, skip_rows_top=None, header='infer', na_values=None):
-    fileTOP: Union[pd.DataFrame, None] = None
-    fileBOT: Union[pd.DataFrame, None] = None
+def read_file(
+        file: str, 
+        data_start: int,
+        use_cols: int=None, 
+        data_end: int=0, 
+        skip_rows_top=None,
+        header: Union[int, Sequence[int], str, None] ='infer',
+        na_values: Optional[Union[str, List[str]]]=None
+    ) -> Tuple[DataFrame, DataFrame]:
+    """Read a Excel or CSV file and convert them to Pandas dataframes.
+
+    Args:
+        file (str): Excel file path or CSV file contents
+        data_start (int): Number of rows to skip before the data is actually shown
+        use_cols (int, optional): Number of columns to read. Defaults to None.
+        data_end (int, optional): Number of columns to skip at the end of the sheet. Defaults to 0.
+        skip_rows_top (int, optional): Number of rows to skip to get the correct data for the first dataframe. Defaults to None.
+        header (Union[int, Sequence[int], Literal["infer"], None], optional): Header names to use. Defaults to 'infer'.
+        na_values (Optional[Union[str, List[str]]], optional): The null values in the shpreadsheet. Defaults to None.
+
+    Returns:
+        Tuple[DataFrame, DataFrame]: 2 dataframes. The first is a single row dataframe used for extracting the
+        account names if needed. The second contains the data.
+    """
+    fileTOP: Union[DataFrame, None] = None
+    fileBOT: Union[DataFrame, None] = None
+    
     try:
         fileTOP = pd.read_excel(
-            io.StringIO(file),
+            file,
             nrows=1,
             skiprows=skip_rows_top
         )
         fileBOT = pd.read_excel(
-            io.StringIO(file),
+            file,
             header=header,
             skiprows=data_start,
             skipfooter=data_end,
             usecols=range(use_cols) if use_cols is not None else None,
             na_values=na_values
         )
-    except:
+    except Exception as e:
         fileTOP = pd.read_csv(
             io.StringIO(file),
             nrows=1,
@@ -514,13 +567,19 @@ def read_file(file, data_start, use_cols=None, data_end=0, skip_rows_top=None, h
     return fileTOP, fileBOT
 
 
-def remove_bad_characters(dataframe, index: int):
-    """
-    :param dataframe: Pandas dataframe
-    :param index: colum index to run replacement
+def remove_bad_characters(dataframe: DataFrame, index: int):
+    """Removes currency formatting from number strings for a dataframe column.
+
+    Args:
+        dataframe (DataFrame): Dataframe to format the column for.
+        index (int): Index of the column to format.
     """
     dataframe[dataframe.columns[index]].replace(
-        '[%\\+\\(\\)$,]', '', regex=True, inplace=True)
+        '[%\\+\\(\\)$,]',
+        '', 
+        regex=True, 
+        inplace=True
+    )
 
 
 if (__name__ == "__main__"):

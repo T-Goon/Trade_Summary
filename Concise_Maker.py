@@ -89,7 +89,7 @@ def create_concise(concise, master):
             tglp = ((val - cbt)/cbt) * 100
 
         # Position size
-        ps = (val/totalValue) * 100
+        ps: float = (val / totalValue) * 100
 
         # add to concise
         temp = pd.DataFrame(data = {
