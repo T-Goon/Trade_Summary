@@ -10,12 +10,12 @@ from os import listdir
 from os.path import isfile, join
 from datetime import date
 
-pathF = "Fidelity/"
-pathE = "Etrade/"
-pathS = "sprott/"
-pathA = "Ameritrade/"
-pathC = 'Canaccord/'
-pathSchwab = 'Schwab/'
+pathFidelity: str = 'Fidelity/'
+pathEtrade: str = 'Etrade/'
+pathSprott: str = 'sprott/'
+pathAmeritrade: str = 'Ameritrade/'
+pathCanaccord: str = 'Canaccord/'
+pathSchwab: str = 'Schwab/'
 
 
 class MasterColums(Enum):
@@ -94,7 +94,7 @@ def main():
 def parse_fidelity(master: DataFrame) -> DataFrame:
     """Parse the fidelity files and add them to the master"""
     # Find all of the files in the 'Fidelity' folder
-    files = [join(pathF, f) for f in listdir(pathF) if isfile(join(pathF, f))]
+    files = [join(pathFidelity, f) for f in listdir(pathFidelity) if isfile(join(pathFidelity, f))]
 
     use_cols: int = 15
 
@@ -160,23 +160,13 @@ def parse_fidelity(master: DataFrame) -> DataFrame:
 
         file[MasterColums.DESCRIPTION.value] = file[MasterColums.DESCRIPTION.value].fillna('').astype(str)
         # Money Market and Pending Activity has no quantity, set to 1
-        cash_like_indexes: List[int] = [
-            index for index, desc, symbol in 
-            zip(
-                file[MasterColums.DESCRIPTION.value].index,
-                file[MasterColums.DESCRIPTION.value].values,
-                file[MasterColums.SYMBOL.value].values
-            )
-            if 'money market' in desc.lower() or 'pending activity' in symbol.lower()
-        ]
-        file[MasterColums.QUANTITY.value] = [
-            quantity if index not in cash_like_indexes else 1 
-            for index, quantity in
-            zip(
-                file[MasterColums.QUANTITY.value].index,
-                file[MasterColums.QUANTITY.value].values
-            )
-        ]
+        for i in range(0, file.shape[0]):
+            description: str = file.loc[i, MasterColums.DESCRIPTION.value].lower()
+            
+            if ('money market' in description or 
+                'pending activity' in description):
+                file.loc[i, MasterColums.QUANTITY.value] = file.loc[i, MasterColums.CURRENT_VALUE.value]
+                file.loc[i, MasterColums.LAST_PRICE.value] = 1
 
         # Total gain/loss dollar always positive, use percentage to check if it should be negative
         # file['Total Gain/Loss Percent'] = pd.to_numeric(
@@ -193,9 +183,9 @@ def parse_fidelity(master: DataFrame) -> DataFrame:
 def parse_etrade(master: DataFrame) -> DataFrame:
     """Parse the etrade files and add them to the master"""
     # Find all of the files in the 'Etrade' folder
-    files = [join(pathE, f) for f in listdir(pathE) if isfile(join(pathE, f))]
+    files = [join(pathEtrade, f) for f in listdir(pathEtrade) if isfile(join(pathEtrade, f))]
 
-    use_cols: int = 10
+    use_cols: int = 12
 
     # append all of the files to masters
     for f in files:
@@ -226,10 +216,11 @@ def parse_etrade(master: DataFrame) -> DataFrame:
         del fileTOP
 
         # Change the format to be the same as the master
-        temp = DataFrame(data={
+        temp: DataFrame = DataFrame(data={
             # name
             MasterColums.ACCOUNT_NAME.value: [name for _ in range(fileBOT.shape[0])],
-            MasterColums.SYMBOL.value: fileBOT[fileBOT.columns[0]],  # Symbol
+            # Symbol
+            MasterColums.SYMBOL.value: fileBOT[fileBOT.columns[0]],  
             # Quantity
             MasterColums.QUANTITY.value: fileBOT[fileBOT.columns[1]],
             # Last Price
@@ -242,10 +233,17 @@ def parse_etrade(master: DataFrame) -> DataFrame:
             MasterColums.TOTAL_GAIN_LOSS_PERCENT.value: fileBOT[fileBOT.columns[7]],
             # Cost Basis Per Share
             MasterColums.COST_BASIS_PER_SHARE.value: fileBOT[fileBOT.columns[9]],
-            # Calculate Cost Basis Total
-            MasterColums.TOTAL_COST_BASIS.value: [
-                p*q for p, q in zip(fileBOT[fileBOT.columns[9]], fileBOT[fileBOT.columns[1]])]
+            # Cost Basis Total
+            MasterColums.TOTAL_COST_BASIS.value: fileBOT[fileBOT.columns[11]]
         })
+        
+        # Cash has no quantity or last price for some reason. Set it.
+        for i in range(0, temp.shape[0]):
+            symbol: str = temp.loc[i, MasterColums.SYMBOL.value].lower()
+            
+            if (symbol == 'cash'):
+                temp.loc[i, MasterColums.QUANTITY.value] = temp.loc[i, MasterColums.CURRENT_VALUE.value]
+                temp.loc[i, MasterColums.LAST_PRICE.value] = 1
 
         # append to master
         master = master.append(temp, ignore_index=True)
@@ -257,7 +255,7 @@ def parse_etrade(master: DataFrame) -> DataFrame:
 def parse_sprott(master: DataFrame) -> DataFrame:
     """Parse the sprott files and add them to the master"""
     # Find all of the files in the 'Sprott' folder
-    files = [join(pathS, f) for f in listdir(pathS) if isfile(join(pathS, f))]
+    files = [join(pathSprott, f) for f in listdir(pathSprott) if isfile(join(pathSprott, f))]
 
     # append all of the files to masters
     for f in files:
@@ -335,7 +333,7 @@ def parse_sprott(master: DataFrame) -> DataFrame:
 def parse_ameritrade(master: DataFrame) -> DataFrame:
     """Parse the Ameritrade files and add them to the master"""
     # Find all of the files in the 'Ameritrade' folder
-    files = [join(pathA, f) for f in listdir(pathA) if isfile(join(pathA, f))]
+    files = [join(pathAmeritrade, f) for f in listdir(pathAmeritrade) if isfile(join(pathAmeritrade, f))]
 
     # append all of the files to masters
     for f in files:
@@ -379,7 +377,7 @@ def parse_ameritrade(master: DataFrame) -> DataFrame:
 def parse_canaccord(master: DataFrame) -> DataFrame:
     """Parse the Canaccord files and add them to the master"""
     # Find all of the files in the 'Canaccord' folder
-    files = [join(pathC, f) for f in listdir(pathC) if isfile(join(pathC, f))]
+    files = [join(pathCanaccord, f) for f in listdir(pathCanaccord) if isfile(join(pathCanaccord, f))]
 
     # append all of the files to masters
     for f in files:
@@ -392,7 +390,7 @@ def parse_canaccord(master: DataFrame) -> DataFrame:
         )
 
         # Get the data into master format
-        temp = DataFrame(data={
+        temp: DataFrame = DataFrame(data={
             # name
             MasterColums.ACCOUNT_NAME.value: file[file.columns[2]],
             # Symbol
@@ -497,6 +495,14 @@ def parse_schwab(master: DataFrame) -> DataFrame:
             # Cost Basis Total
             MasterColums.TOTAL_COST_BASIS.value: fileBOT[fileBOT.columns[9]],
         })
+        
+        # Cash has no quantity or last price for some reason. Set it.
+        for i in range(0, temp.shape[0]):
+            symbol: str = temp.loc[i, MasterColums.SYMBOL.value].lower()
+            
+            if ('cash' in symbol):
+                temp.loc[i, MasterColums.QUANTITY.value] = temp.loc[i, MasterColums.CURRENT_VALUE.value]
+                temp.loc[i, MasterColums.LAST_PRICE.value] = 1
 
         # append to master
         master = master.append(temp, ignore_index=True)
