@@ -193,11 +193,17 @@ def parse_etrade(master: DataFrame) -> DataFrame:
             data: str = fr.read()
             data_start: int = -1
             data_end: int = -1
+            # Etrade places a bad row in the table that says you have
+            # no positions if you don't have any positions.
+            # Must be removed for parsing.
+            bad_rows: List[int] = []
 
             # Find the row where the header ends and the data begins
             rows: List[str] = data.split('\n')
             for i, row in enumerate(rows):
                 columns: List[str] = row.split(',')
+                if data_start != -1 and i < len(rows) -  data_end and len(columns) < 12:
+                    bad_rows.append(i)
                 if data_start == -1 and columns[0] == 'Symbol' and columns[1] == 'Qty #':
                     data_start = i
                 if data_end == -1 and columns[0] == 'TOTAL':
@@ -208,7 +214,10 @@ def parse_etrade(master: DataFrame) -> DataFrame:
             data_start=data_start,
             data_end=data_end,
             use_cols=use_cols,
-            skip_rows_top=[0]
+            skip_rows_top=[0],
+            na_values=[''],
+            header=0,
+            skip_rows_bot=bad_rows
         )
 
         # Get the account name from the top part of the csv
@@ -235,8 +244,8 @@ def parse_etrade(master: DataFrame) -> DataFrame:
             MasterColums.COST_BASIS_PER_SHARE.value: fileBOT[fileBOT.columns[9]],
             # Cost Basis Total
             MasterColums.TOTAL_COST_BASIS.value: fileBOT[fileBOT.columns[11]]
-        })
-        
+        })       
+
         # Cash has no quantity or last price for some reason. Set it.
         for i in range(0, temp.shape[0]):
             symbol: str = temp.loc[i, MasterColums.SYMBOL.value].lower()
@@ -512,12 +521,13 @@ def parse_schwab(master: DataFrame) -> DataFrame:
 
 def read_file(
         file: str, 
-        data_start: int,
+        data_start: Optional[int],
         use_cols: int=None, 
         data_end: int=0, 
         skip_rows_top=None,
         header: Union[int, Sequence[int], str, None] ='infer',
-        na_values: Optional[Union[str, List[str]]]=None
+        na_values: Optional[Union[str, List[str]]]=None,
+        skip_rows_bot: List[int] = []
     ) -> Tuple[DataFrame, DataFrame]:
     """Read a Excel or CSV file and convert them to Pandas dataframes.
 
@@ -546,7 +556,7 @@ def read_file(
         fileBOT = pd.read_excel(
             file,
             header=header,
-            skiprows=data_start,
+            skiprows=list(range(data_start)) + skip_rows_bot if data_start != None else skip_rows_bot,
             skipfooter=data_end,
             usecols=range(use_cols) if use_cols is not None else None,
             na_values=na_values
@@ -557,17 +567,18 @@ def read_file(
             nrows=1,
             skiprows=skip_rows_top,
             engine='python',
-            error_bad_lines=False
+            on_bad_lines='warn'
         )
         fileBOT = pd.read_csv(
             io.StringIO(file),
             header=header,
-            skiprows=data_start,
+            skiprows=list(range(data_start)) + skip_rows_bot if data_start != None else skip_rows_bot,
             skipfooter=data_end,
             usecols=range(use_cols) if use_cols is not None else None,
             engine='python',
-            error_bad_lines=False,
-            na_values=na_values
+            on_bad_lines='warn',
+            na_values=na_values,
+            index_col=False
         )
 
     return fileTOP, fileBOT
