@@ -390,12 +390,11 @@ def parse_canaccord(master: DataFrame) -> DataFrame:
 
     # append all of the files to masters
     for f in files:
-        # with open(f, encoding='ascii', errors='ignore') as fr:
-        #     data = fr.read()
 
         _, file = read_file(
             f,
-            data_start=2
+            data_start=10,
+            use_cols=np.arange(1, 22)
         )
 
         # Get the data into master format
@@ -403,7 +402,8 @@ def parse_canaccord(master: DataFrame) -> DataFrame:
             # name
             MasterColums.ACCOUNT_NAME.value: file[file.columns[2]],
             # Symbol
-            MasterColums.SYMBOL.value: file[file.columns[0]],
+            MasterColums.SYMBOL.value: [it if it.lower() != 'USD999997'.lower() else 'Cash' 
+                                        for it in file[file.columns[0]]],
             # Description
             MasterColums.DESCRIPTION.value: file[file.columns[4]],
             MasterColums.QUANTITY.value: file[file.columns[6]],  # Quantity
@@ -419,6 +419,9 @@ def parse_canaccord(master: DataFrame) -> DataFrame:
             MasterColums.TOTAL_COST_BASIS.value: [
                 ''] * file.shape[0]  # Cost Basis Total
         })
+        
+        remove_bad_characters(temp, 4)
+        remove_bad_characters(temp, 5)
 
         # Add to master
         master = master.append(temp, ignore_index=True)
@@ -522,7 +525,7 @@ def parse_schwab(master: DataFrame) -> DataFrame:
 def read_file(
         file: str, 
         data_start: Optional[int],
-        use_cols: int=None, 
+        use_cols: Optional[Union[int, List[int]]]=None, 
         data_end: int=0, 
         skip_rows_top=None,
         header: Union[int, Sequence[int], str, None] ='infer',
@@ -558,7 +561,9 @@ def read_file(
             header=header,
             skiprows=list(range(data_start)) + skip_rows_bot if data_start != None else skip_rows_bot,
             skipfooter=data_end,
-            usecols=range(use_cols) if use_cols is not None else None,
+            usecols=(range(use_cols) if use_cols is not None else None) 
+                if isinstance(use_cols, int) else 
+                (use_cols if use_cols is not None else None),
             na_values=na_values
         )
     except Exception as e:
@@ -574,7 +579,9 @@ def read_file(
             header=header,
             skiprows=list(range(data_start)) + skip_rows_bot if data_start != None else skip_rows_bot,
             skipfooter=data_end,
-            usecols=range(use_cols) if use_cols is not None else None,
+            usecols=(range(use_cols) if use_cols is not None else None) 
+                if isinstance(use_cols, int) else 
+                (use_cols if use_cols is not None else None),
             engine='python',
             on_bad_lines='warn',
             na_values=na_values,
